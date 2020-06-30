@@ -8,7 +8,7 @@ from Crypto.Util.Padding import pad, unpad
 import time
 
 
-# simetricna enkripcija AES ili 3-DES algoritmom u 2 nacina rada: OFB ili CFB
+# symmetric encryption using AES or 3-DES algorithms in OFB or CFB mode of operation
 def symmetric_encryption(msg, key, mode, encryption_mode, iv):
     if mode == "AES":
         msg = pad(msg, AES.block_size)
@@ -26,7 +26,7 @@ def symmetric_encryption(msg, key, mode, encryption_mode, iv):
     return encrypted
 
 
-# simetricna dekripcija AES ili 3-DES algoritmom u 2 nacina rada: OFB ili CFB
+# symmetric decryption using AES or 3-DES algorithms in OFB or CFB mode of operation
 def symmetric_decryption(encrypted, key, mode, encryption_mode, iv):
     if mode == "AES":
         if encryption_mode == "OFB":
@@ -43,7 +43,7 @@ def symmetric_decryption(encrypted, key, mode, encryption_mode, iv):
     return decrypted
 
 
-# racunanje sazetka poruke SHA3 algoritmom velicine: 224, 256, 384 ili 512 bitova
+# calculating message hash using SHA3 algorithm of size: 224, 256 or 512 bits
 def get_hash(msg, hash_size):
     if hash_size == "224":
         hash = SHA3_224.new(msg)
@@ -56,7 +56,7 @@ def get_hash(msg, hash_size):
     return hash
 
 
-# racunanje digitalnog potpisa
+# calculating digital signature
 def get_signature(private_key, hash_size, msg):
     print()
     hashed_msg = get_hash(msg, hash_size)
@@ -65,7 +65,7 @@ def get_signature(private_key, hash_size, msg):
     return signature
 
 
-# verificiranje digitalnog potpisa
+# digital signature verification
 def verify_signature(public_key, signature, hash_mode, msg):
     hashed_msg = get_hash(msg, hash_mode)
     key = RSA.import_key(public_key)
@@ -76,21 +76,21 @@ def verify_signature(public_key, signature, hash_mode, msg):
         return False
 
 
-# RSA enkripcija
+# RSA encryption
 def rsa_encryption(public_key, to_encrypt):
     encryptor = PKCS1_OAEP.new(public_key)
     encrypted = encryptor.encrypt(to_encrypt)
     return encrypted
 
 
-# RSA dekripcija
+# RSA decryption
 def rsa_decryption(key, to_decrypt):
     decryptor = PKCS1_OAEP.new(key)
     decrypted = decryptor.decrypt(to_decrypt)
     return decrypted
 
 
-# stvaranje inicijalizacijskog vektora
+# creating initialization vector
 def initialize_vector(mode):
     if mode == "AES":
         iv_size = 16
@@ -100,7 +100,7 @@ def initialize_vector(mode):
     return bytes(vector)
 
 
-# klasa koja predstavlja posiljatelja poruke
+# class representing message sender
 class Sender:
 
     def __init__(self, hash_mode, encryption_mode, mode, rec_public_key, own_private_key, symmetrical_key_size):
@@ -113,33 +113,33 @@ class Sender:
         self.private_key = own_private_key
 
     def send_message(self, message):
-        # stvaranje simetricnog kljuca i kriptiranje poruke istim
+        # symmetric key creation and message encryption with said key
         _key = get_random_bytes(self.symmetrical_key_size)
         encrypted_msg = symmetric_encryption(message, _key, self.mode, self.encryption_mode, self.iv)
 
-        # kriptiranje simetricnog kljuca javnim kljucem primatelja
+        # symmetric key encryption using reciever's public key
         encrypted_key = rsa_encryption(self.rec_public_key, _key)
 
-        # zapisivanje kriptirane poruke i kljuca u datoteke
+        # writing encrypted message and key in appropriately named files
         with open("message.txt", "wb") as file:
             file.write(encrypted_msg)
         with open("key.txt", "wb") as file:
             file.write(encrypted_key)
 
-        # digitalna omotnica - cine ju enkriptirana poruka i enkriptirani kljuc
+        # digital envelope (consisted of encrypted message and encrypted key)
         envelope = encrypted_key + encrypted_msg
 
-        # digitalni pecat
+        # digital seal
         signature = get_signature(self.private_key.export_key(), self.hash_mode, envelope)
 
-        # zapisivanje digitalnog pecata u "seal.txt"
+        # writing digital seal in appropriately named file "seal.txt"
         with open("seal.txt", "wb") as file:
             file.write(signature)
 
-        print("Posiljatelj: Poruka je poslana!")
+        print("Sender: Message sent!")
 
 
-# klasa koja predstavlja primatelja poruke
+# class representing message recipient (reciever)
 class Reciever:
 
     def __init__(self, hash_mode, encryption_mode, mode, private_key, s_public_key, iv):
@@ -152,70 +152,70 @@ class Reciever:
 
 
     def read_message(self):
-        # citanje primljene poruke
+        # reading recieved message
         with open("message.txt", "rb") as file:
             enc_msg = file.read()
 
-        # citanje primljenog kljuca
+        # reading recieved key
         with open("key.txt", "rb") as file:
             enc_key = file.read()
 
-        # dekriptiranje kljuca vlastititm privatnim kljucem
+        # key decryption using own private key
         _decrypted_key = rsa_decryption(self.private_key, enc_key)
 
-        # dekriptiranje poruke prethodno dekriptiranim kljucem
+        # message decryption using previously decrpypted key
         _decrypted_msg = symmetric_decryption(enc_msg, _decrypted_key, self.mode, self.encryption_mode, self.iv)
 
-        # citanje potpisa
+        # reading signature
         with open("seal.txt", "rb") as file:
             _signature = file.read()
 
-        # verificiranje potpisa
+        # signature verification
         if verify_signature(self.s_public_key.export_key(), _signature, self.hash_mode, _decrypted_msg):
-            print("\nPrimatelj: Potpis je verificiran!")
-            # ispis originalno poslane poruke
-            print("Primatelj:\n  Dekriptirana poruka: " + str(_decrypted_msg.decode()))
+            print("\nReciever: Signature verified!")
+            # original message print
+            print("Reciever:\n  Decrypted message: " + str(_decrypted_msg.decode()))
         else:
-            print("Primatelj: Potpis nije verificiran!")
+            print("Reciever: Signature unverified!")
 
 
 if __name__ == '__main__':
-    print("Prilikom izvodenja programa stvoriti ce se: message.txt, key.txt i seal.txt datoteke.")
-    print("U njima ce biti zapisani njima odgovarajuci podaci.")
+    print("NOTE: During program run, message.txt, key.txt and seal.txt files will be created on your device.")
+    print("Data corresponding their names will be written in them.")
     print()
-    print("Unesite:")
-    print("Algoritam simetricnog kriptiranja(AES ili DES3): ")
+    print("Insert:")
+    print("Symmetric encryption algorithm(AES or DES3): ")
     mode = input().upper()
-    print("Unesite:")
-    print("Nacin rada algoritma simetricnog kriptiranja(OFB ili CFB): ")
+    print("Insert:")
+    print("Mode of operation for symmetric encryption algorithm(OFB or CFB)")
     encryption_mode = input().upper()
-    print("Velicina kljuca(AES): 16, 24 ili 32 bita")
-    print("Velicina kljuca(3-DES): 16 ili 24 bita")
-    print("Unesite:")
-    print("Velicinu kljuca u bitovima: ")
+    print("Key size(AES): 16, 24 or 32 bits")
+    print("Key size(3-DES): 16 ili 24 bits")
+    print("Insert:")
+    print("Key size in bits: ")
     symmetrical_key_size = int(input())
-    print("Unesite:")
-    print("Velicinu kljuca za algoritam asimetricnog kriptiranja(RSA) u bitovima(1024, 2048 ili 3072): ")
+    print("Insert:")
+    print("Asymmetric algorithm encryption(RSA) key size in bits(1024, 2048 or 3072): ")
     rsa_key_size = int(input())
-    print("Unesite:")
-    print("Velicinu sazetka SHA3(224, 256, 384 ili 512): ")
+    print("Insert:")
+    print("SHA3 hash size(224, 256, 384 ili 512): ")
     hash_mode = input()
-    print("Unesite:")
-    print("Poruku: ")
+    print("Insert:")
+    print("Message: ")
     message = bytes(input(), encoding='utf8')
 
-    # stvaranje privatnog i javnog kljuca primatelja
-    reciever_private_key = RSA.generate(rsa_key_size)       # nije vidljiv posiljatelju
-    reciever_public_key = reciever_private_key.publickey()  # vidljiv posiljatelju
+    # reciever private and public key creation
+    reciever_private_key = RSA.generate(rsa_key_size)       # not visible to sender
+    reciever_public_key = reciever_private_key.publickey()  # visible to sender
 
-    # stvaranje privatnog i javnog kljuca posiljatelja
-    sender_private_key = RSA.generate(rsa_key_size)         # nije vidljiv primatelju
-    sender_public_key = sender_private_key.publickey()      # vidljiv primatelju
+    # sender private and public key creation
+    sender_private_key = RSA.generate(rsa_key_size)         # not visible to reciever
+    sender_public_key = sender_private_key.publickey()      # visible to reciever
 
-    posiljatelj = Sender(hash_mode, encryption_mode, mode, reciever_public_key, sender_private_key, symmetrical_key_size)
-    primatelj = Reciever(hash_mode, encryption_mode, mode, reciever_private_key, sender_public_key, posiljatelj.iv)
+    sender = Sender(hash_mode, encryption_mode, mode, reciever_public_key, sender_private_key, symmetrical_key_size)
+    reciever = Reciever(hash_mode, encryption_mode, mode, reciever_private_key, sender_public_key, sender.iv)
 
-    posiljatelj.send_message(message)
+    sender.send_message(message)
     time.sleep(1)
-    primatelj.read_message()
+    reciever.read_message()
 
