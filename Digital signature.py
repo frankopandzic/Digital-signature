@@ -8,7 +8,7 @@ from Crypto.Util.Padding import pad, unpad
 import time
 
 
-# symmetric encryption using AES or 3-DES algorithms in OFB or CFB mode of operation
+# symmetric encryption using AES or 3-DES algorithm in OFB or CFB mode of operation
 def symmetric_encryption(msg, key, mode, encryption_mode, iv):
     if mode == "AES":
         msg = pad(msg, AES.block_size)
