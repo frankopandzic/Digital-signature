@@ -26,7 +26,7 @@ def symmetric_encryption(msg, key, mode, encryption_mode, iv):
     return encrypted
 
 
-# symmetric decryption using AES or 3-DES algorithms in OFB or CFB mode of operation
+# symmetric decryption using AES or 3-DES algorithm in OFB or CFB mode of operation
 def symmetric_decryption(encrypted, key, mode, encryption_mode, iv):
     if mode == "AES":
         if encryption_mode == "OFB":
